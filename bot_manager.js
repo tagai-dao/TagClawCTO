@@ -1,4 +1,5 @@
 const axios = require('axios');
+// env 由入口（server.js）通过 loadEncryptedEnv 加载，此处不再加载
 
 class BotManager {
     constructor() {

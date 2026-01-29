@@ -1,3 +1,6 @@
+// 启动时从终端输入密码解密 .env，不落盘、不写入 process.env
+const { loadEncryptedEnv } = require('./env_crypto');
+
 const express = require('express');
 const axios = require('axios');
 const bodyParser = require('body-parser');
@@ -39,7 +42,7 @@ app.post('/chat', async (req, res) => {
             stream: false // 设置为 false 方便中转层直接获取完整回复
         }, {
             headers: {
-                'Authorization': 'Bearer 75d4d71d41614528a031c98b55ba99a6c03c4c918522eb57',
+                'Authorization': `Bearer ${process.env.API_TOKEN}`,
                 'Content-Type': 'application/json',
                 // 👇 安全限制：禁止危险工具
                 'x-clawdbot-agent-restrictions': 'exec:deny,read:deny,write:deny,browser:deny,nodes:deny,memory_search:deny,web_fetch:deny',
@@ -83,11 +86,19 @@ app.get('/', (req, res) => {
     res.json({ status: 'proxy running', endpoint: '/chat' });
 });
 
-app.listen(PROXY_PORT, '0.0.0.0', () => {
-    console.log(`-----------------------------------------`);
-    console.log(`🚀 稳定版中转服务已启动 (HTTP 模式)`);
-    console.log(`👉 端口: ${PROXY_PORT}`);
-    console.log(`👉 地址: http://[2a02:c207:2244:7382::1]:${PROXY_PORT}/chat`);
-    console.log(`👉 根路径: http://[2a02:c207:2244:7382::1]:${PROXY_PORT}/`);
-    console.log(`-----------------------------------------`);
-})
+// 先解密 .env 再启动服务
+loadEncryptedEnv()
+    .then(() => {
+        app.listen(PROXY_PORT, '0.0.0.0', () => {
+            console.log(`-----------------------------------------`);
+            console.log(`🚀 稳定版中转服务已启动 (HTTP 模式)`);
+            console.log(`👉 端口: ${PROXY_PORT}`);
+            console.log(`👉 地址: http://[2a02:c207:2244:7382::1]:${PROXY_PORT}/chat`);
+            console.log(`👉 根路径: http://[2a02:c207:2244:7382::1]:${PROXY_PORT}/`);
+            console.log(`-----------------------------------------`);
+        });
+    })
+    .catch((err) => {
+        console.error(err.message || err);
+        process.exit(1);
+    });

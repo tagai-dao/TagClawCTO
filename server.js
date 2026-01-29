@@ -1,19 +1,23 @@
-require('dotenv').config();
+// 启动时从终端输入密码解密 .env，不落盘、不写入 process.env
+const { loadEncryptedEnv } = require('./env_crypto');
+
 const express = require('express');
 const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const { execute } = require('./db/pool');
+
 // 解析 JSON 格式的请求体
 app.use(express.json());
 
 const BotManager = require('./bot_manager');
-const botManager = new BotManager();
+let botManager;
 
 // --- Express Routes ---
 
 // 首页路由
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
     res.status(200).send('Twitter Webhook Receiver is running! 🚀');
 });
 
@@ -57,8 +61,17 @@ app.post('/webhook', (req, res) => {
     })();
 });
 
-// 启动服务器
-app.listen(PORT, () => {
-    console.log(`\n🚀 服务已启动! 监听端口: ${PORT}`);
-    console.log(`👉 本地测试地址: http://localhost:${PORT}/webhook`);
-});
+// 先解密 .env 再启动服务器
+loadEncryptedEnv()
+    .then(() => {
+        console.log('🔑 .env 解密成功', process.env);
+        botManager = new BotManager();
+        app.listen(PORT, () => {
+            console.log(`\n🚀 服务已启动! 监听端口: ${PORT}`);
+            console.log(`👉 本地测试地址: http://localhost:${PORT}/webhook`);
+        });
+    })
+    .catch((err) => {
+        console.error(err.message || err);
+        process.exit(1);
+    });
