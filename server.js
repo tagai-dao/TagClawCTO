@@ -4,7 +4,7 @@ const { loadEncryptedEnv } = require('./env_crypto');
 const express = require('express');
 const axios = require('axios');
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3123;
 
 const { execute } = require('./db/pool');
 
@@ -49,11 +49,13 @@ app.post('/webhook', (req, res) => {
                 
                 for (const tweet of payload.tweets) {
                     // 调用 BotManager 处理
+                    console.log(33, tweet)
                     // 注意：不需要 await，让它后台跑，以免阻塞（其实已经 res.send 了，也不会阻塞 HTTP，但最好捕获异常）
-                    botManager.handleTweet(tweet).catch(err => {
-                        console.error('[Bot] 处理推文异常:', err);
-                    });
+                    // botManager.handleTweet(tweet).catch(err => {
+                    //     console.error('[Bot] 处理推文异常:', err);
+                    // });
                 }
+                process.exit(0);
             }
         } catch (error) {
             console.error('[Webhook] 处理流程错误:', error);
@@ -75,3 +77,70 @@ loadEncryptedEnv()
         console.error(err.message || err);
         process.exit(1);
     });
+
+
+const demo = {
+    type: 'tweet',
+    id: '2016729086761324594',
+    url: 'https://x.com/qwe1217411/status/2016729086761324594',
+    twitterUrl: 'https://twitter.com/qwe1217411/status/2016729086761324594',
+    text: '@ClawdXBot hi',
+    source: 'Twitter for iPhone',
+    retweetCount: 0,
+    replyCount: 0,
+    likeCount: 0,
+    quoteCount: 0,
+    viewCount: 3,
+    createdAt: 'Thu Jan 29 04:24:17 +0000 2026',
+    lang: 'und',
+    bookmarkCount: 0,
+    isReply: false,
+    inReplyToId: null,
+    conversationId: '2016729086761324594',
+    displayTextRange: [ 0, 13 ],
+    inReplyToUserId: '812644025996087296',
+    inReplyToUsername: 'ClawdXBot',
+    author: {
+        type: 'user',
+        userName: 'qwe1217411',
+        url: 'https://x.com/qwe1217411',
+        twitterUrl: 'https://twitter.com/qwe1217411',
+        id: '1743592308141113344',
+        name: 'jin',
+        isVerified: false,
+        isBlueVerified: false,
+        verifiedType: null,
+        profilePicture: 'https://pbs.twimg.com/profile_images/1743593961787469824/U0ytQx3a_normal.jpg',
+        coverPicture: '',
+        description: '',
+        location: 'tailand',
+        followers: 0,
+        following: 9,
+        status: '',
+        canDm: false,
+        canMediaTag: true,
+        createdAt: 'Sat Jan 06 11:16:21 +0000 2024',
+        entities: { description: [Object], url: {} },
+        fastFollowersCount: 0,
+        favouritesCount: 17,
+        hasCustomTimelines: true,
+        isTranslator: false,
+        mediaCount: 0,
+        statusesCount: 16,
+        withheldInCountries: [],
+        affiliatesHighlightedLabel: {},
+        possiblySensitive: false,
+        pinnedTweetIds: [],
+        profile_bio: { description: 'Hold! Hold!', entities: [Object] },
+        isAutomated: false,
+        automatedBy: null
+    },
+    extendedEntities: {},
+    card: null,
+    place: {},
+    entities: { user_mentions: [ [Object] ] },
+    quoted_tweet: null,
+    retweeted_tweet: null,
+    isLimitedReply: false,
+    article: null
+    }

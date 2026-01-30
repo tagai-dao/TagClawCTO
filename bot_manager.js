@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { execute } = require('./db/pool');
 // env 由入口（server.js）通过 loadEncryptedEnv 加载，此处不再加载
 
 class BotManager {
@@ -161,7 +162,8 @@ class BotManager {
         this.dailyStats.userCounts.set(userId, currentUserCount + 1);
 
         const sessionId = this.getSessionId(userId);
-        const message = tweet.text;
+        const prompt = '查看该推文的text内容，根据其内容要求，做出回复，有必要的话进行一些网页搜索。比如用户需要你分析回复的原推文是否是真实事件，或者给出一些关于原推文的详细描述，你需要去查询对应的推文来做出回复。回复不超过280个字符。以下是推文数据：\n'
+        const message = prompt + tweet.text;
 
         console.log(`[Bot] 🤖 正在调用 AI (Session: ${sessionId}) 回复推文: ${tweet.id}`);
 
@@ -191,6 +193,24 @@ class BotManager {
             }
 
             console.log(`[Bot] ✅ AI 回复成功: ${aiReply.substring(0, 50).replace(/\n/g, ' ')}...`);
+
+            // 写入数据库任务表
+            // type默认填4，parent_id是需要直接回复的推文id，content是需要回复的内容
+            // tweet_id 填 conversationId
+            try {
+                const sql = `INSERT INTO tiptag_reply_task (type, tweet_id, parent_id, content) VALUES (?, ?, ?, ?)`;
+                // 注意：tweet.conversationId 必须存在，否则可能会有问题，这里假设数据结构符合 demo
+                const params = [4, tweet.conversationId, tweet.id, aiReply];
+                await execute(sql, params);
+                console.log(`[Bot] 💾 回复任务已写入数据库 (type=4, parent_id=${tweet.id})`);
+            } catch (dbError) {
+                // 如果是重复键错误(ER_DUP_ENTRY)，说明该 conversation 已经有任务了，记录一下即可
+                if (dbError.code === 'ER_DUP_ENTRY') {
+                    console.log(`[Bot] ⚠️ 任务写入跳过: 该 Conversation (${tweet.conversationId}) 已存在回复任务`);
+                } else {
+                    console.error(`[Bot] ❌ 任务写入数据库失败: ${dbError.message}`);
+                }
+            }
 
         } catch (error) {
             console.error(`[Bot] ❌ AI 调用失败: ${error.message}`);
