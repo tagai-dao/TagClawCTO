@@ -11,7 +11,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // --- 配置区域 ---
-const CLAWDBOT_API_URL = 'http://127.0.0.1:18789/v1/chat/completions';
+const OPENCLAW_API_URL = 'http://127.0.0.1:18789/v1/chat/completions';
 const PROXY_PORT = 3000;
 
 /**
@@ -28,14 +28,14 @@ app.post('/chat', async (req, res) => {
     console.log(`[请求] 用户: ${userId} | 内容: ${message}`);
 
     try {
-        // 直接调用 Clawdbot 的 HTTP 接口
-        const response = await axios.post(CLAWDBOT_API_URL, {
+        // 直接调用 openclaw 的 HTTP 接口
+        const response = await axios.post(OPENCLAW_API_URL, {
             // 构造符合 OpenAI 标准的消息格式
             messages: [
                 { role: 'user', content: message }
             ],
             // 使用 model 字段指定 agent
-            model: "clawdbot:main",
+            model: "openclaw",
             // OpenAI user 字段用于生成稳定 sessionId
             user: `app_user_${userId}`,
             max_tokens: 200,  // 限制回复长度
@@ -43,11 +43,7 @@ app.post('/chat', async (req, res) => {
         }, {
             headers: {
                 'Authorization': `Bearer ${process.env.API_TOKEN}`,
-                'Content-Type': 'application/json',
-                // 👇 安全限制：禁止危险工具
-                'x-clawdbot-agent-restrictions': 'exec:deny,read:deny,write:deny,browser:deny,nodes:deny,memory_search:deny,web_fetch:deny',
-                // 👇 只允许一次回复
-                'x-clawdbot-session-max-turns': '1'
+                'Content-Type': 'application/json'
             },
             timeout: 60000 // 设置 60 秒超时，防止长文本生成过慢
         });
@@ -72,7 +68,7 @@ app.post('/chat', async (req, res) => {
         console.error(`[错误] 用户: ${userId} | 原因:`, error.message);
         
         if (error.response) {
-            // Clawdbot 返回了错误
+            // openclaw 返回了错误
             res.status(error.response.status).json({ error: 'AI 服务响应错误', details: error.response.data });
         } else {
             // 网络或其他错误
@@ -89,6 +85,7 @@ app.get('/', (req, res) => {
 // 先解密 .env 再启动服务
 loadEncryptedEnv()
     .then(() => {
+        console.log(process.env);
         app.listen(PROXY_PORT, '0.0.0.0', () => {
             console.log(`-----------------------------------------`);
             console.log(`🚀 稳定版中转服务已启动 (HTTP 模式)`);

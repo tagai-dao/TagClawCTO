@@ -1,10 +1,10 @@
 const axios = require('axios');
-const { execute } = require('./db/pool');
+const { getInstance: getDb } = require('./db/pool');
 // env 由入口（server.js）通过 loadEncryptedEnv 加载，此处不再加载
 
 class BotManager {
     constructor() {
-        this.CLAWDBOT_API_URL = 'http://127.0.0.1:18789/v1/chat/completions';
+        this.OPENCLAW_API_URL = 'http://127.0.0.1:18789/v1/chat/completions';
         
         // 状态
         this.processedTweets = new Set(); // Set<tweetId>
@@ -168,20 +168,19 @@ class BotManager {
         console.log(`[Bot] 🤖 正在调用 AI (Session: ${sessionId}) 回复推文: ${tweet.id}`);
 
         try {
-            const response = await axios.post(this.CLAWDBOT_API_URL, {
+            const response = await axios.post(this.OPENCLAW_API_URL, {
                 messages: [
                     { role: 'user', content: message }
                 ],
-                model: "clawdbot:safe-response",
+                model: "openclaw",
                 user: sessionId,
                 max_tokens: 200,
                 stream: false
             }, {
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer 75d4d71d41614528a031c98b55ba99a6c03c4c918522eb57',
-                    'x-clawdbot-agent-restrictions': 'exec:deny,read:deny,write:deny,browser:deny,nodes:deny,memory_search:deny,web_fetch:deny',
-                    'x-clawdbot-session-max-turns': '1'
+                    'Authorization': `Bearer ${process.env.API_TOKEN}`,
+                    'x-openclaw-agent-id': 'main'
                 },
                 timeout: 60000
             });
@@ -201,7 +200,7 @@ class BotManager {
                 const sql = `INSERT INTO tiptag_reply_task (type, tweet_id, parent_id, content) VALUES (?, ?, ?, ?)`;
                 // 注意：tweet.conversationId 必须存在，否则可能会有问题，这里假设数据结构符合 demo
                 const params = [4, tweet.conversationId, tweet.id, aiReply];
-                await execute(sql, params);
+                await getDb().execute(sql, params);
                 console.log(`[Bot] 💾 回复任务已写入数据库 (type=4, parent_id=${tweet.id})`);
             } catch (dbError) {
                 // 如果是重复键错误(ER_DUP_ENTRY)，说明该 conversation 已经有任务了，记录一下即可

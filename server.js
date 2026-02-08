@@ -6,7 +6,7 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3123;
 
-const { execute } = require('./db/pool');
+const { createInstance: createDb } = require('./db/pool');
 
 // 解析 JSON 格式的请求体
 app.use(express.json());
@@ -66,7 +66,7 @@ app.post('/webhook', (req, res) => {
 // 先解密 .env 再启动服务器
 loadEncryptedEnv()
     .then(() => {
-        console.log('🔑 .env 解密成功', process.env);
+        createDb(); // env 已解密，实例化持久化 DB 连接
         botManager = new BotManager();
         app.listen(PORT, () => {
             console.log(`\n🚀 服务已启动! 监听端口: ${PORT}`);
@@ -84,7 +84,7 @@ const demo = {
     id: '2016729086761324594',
     url: 'https://x.com/qwe1217411/status/2016729086761324594',
     twitterUrl: 'https://twitter.com/qwe1217411/status/2016729086761324594',
-    text: '@ClawdXBot hi',
+    text: '@OpenXclaw hi',
     source: 'Twitter for iPhone',
     retweetCount: 0,
     replyCount: 0,
@@ -99,7 +99,7 @@ const demo = {
     conversationId: '2016729086761324594',
     displayTextRange: [ 0, 13 ],
     inReplyToUserId: '812644025996087296',
-    inReplyToUsername: 'ClawdXBot',
+    inReplyToUsername: 'OpenXclaw',
     author: {
         type: 'user',
         userName: 'qwe1217411',
