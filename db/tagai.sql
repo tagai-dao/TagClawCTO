@@ -13,3 +13,14 @@ CREATE TABLE `tiptag_reply_task` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique` (`tweet_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=232036 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='需要由tiptag官方回复的任务加入到该表，由单独的服务按顺序回复推特\n可能有多种回复的主体，目前有tiptagai，用户对使用tiptagai部署代币的推文进行回复';
+
+DROP TABLE IF EXISTS `all_tweets`;
+CREATE TABLE `all_tweets` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `tweet_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `synced` tinyint(1) NOT NULL DEFAULT '0',
+  `create_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=14847 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='所有被抓取的twitter会显示在这里\n抓取的clanker相关的帖子从这里获取';
