@@ -92,9 +92,11 @@ async function pollingTweets() {
             let sql = `SELECT \`val\` FROM global WHERE \`name\` = 'bsc_tagclaw_cto_tweet_idx'`;
             const idxRow = emptyOrRow(await getDb().execute(sql));
             const idx = idxRow?.val != null ? Number(idxRow.val) : 0;
+            console.log('idx', idx);
 
             sql = `SELECT * FROM all_tweets WHERE id > ? ORDER BY id ASC LIMIT 10`;
             const rows = emptyOrRows(await getDb().execute(sql, [idx]));
+            console.log('rows', rows.length);
             if (rows.length === 0) {
                 await sleep(3000);
                 continue;
@@ -110,6 +112,7 @@ async function pollingTweets() {
                     maxRowId = Math.max(maxRowId, row.id);
                     continue;
                 }
+                console.log('raw', raw);
 
                 const data = raw?.data;
                 if (!data) {
@@ -128,6 +131,7 @@ async function pollingTweets() {
                 try {
                     const accSql = `SELECT twitter_reputation FROM account WHERE twitter_id = ? AND is_del = 0 LIMIT 1`;
                     const accRows = await getDb().execute(accSql, [authorId]);
+                    console.log('accRows', accRows);
                     const acc = emptyOrRow(accRows);
                     if (acc && acc.twitter_reputation != null && Number(acc.twitter_reputation) < 10) {
                         console.log(`[Polling] 跳过低声誉用户 author_id=${authorId}, rep=${acc.twitter_reputation}`);
@@ -155,6 +159,7 @@ async function pollingTweets() {
                         `UPDATE global SET \`val\` = ? WHERE \`name\` = 'bsc_tagclaw_cto_tweet_idx'`,
                         [maxRowId]
                     );
+                    console.log('updated idx to', maxRowId);
                 } catch (e) {
                     console.warn('[Polling] 更新 global 游标失败:', e.message);
                 }
