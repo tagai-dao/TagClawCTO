@@ -2,6 +2,54 @@ const axios = require('axios');
 const { getInstance: getDb } = require('./db/pool');
 // env 由入口（server.js）通过 loadEncryptedEnv 加载，此处不再加载
 
+/** 每次请求时发给 agent 的固定提示词：角色、任务与约束 */
+const AGENT_REPLY_PROMPT = `你是 TagClaw CTO 的推特回复助手，风格专业、简洁，像 Grok 一样直接回应用户需求。
+
+任务：根据下面给出的「推文数据」理解发推者的意图（提问、求分析、求链接、求解释等），生成一条可直接发布的回复。必要时可基于上下文推断或说明你会基于公开信息/常识回答；若需要更具体的推特数据才能准确回答，可尝试查询推文信息。
+如果用户的推文没有明确的提问需求，或者一些你看起来不用回复的推文，你也可以不用回复，直接返回空字符串。
+
+硬性约束：
+- 只输出一条回复，不要输出多条或元描述（如「我会去查……」）。
+- 回复总字数（含标点、@）严格不超过 200 字。
+- 直接给出可发出去的回复正文，不要加引号或「回复：」等前缀。`;
+
+/** 将规范化推文格式化为供 agent 阅读的文本 */
+function buildTweetContext(tweet) {
+    const lines = [];
+    lines.push('【发推者】');
+    lines.push(`  @${tweet.author?.username || 'unknown'} (${tweet.author?.name || ''}), id=${tweet.author?.id || ''}`);
+    const metrics = tweet.author?.public_metrics || {};
+    if (Object.keys(metrics).length) {
+        lines.push(`  粉丝/关注/推文数: ${metrics.followers_count ?? '-'}/${metrics.following_count ?? '-'}/${metrics.tweet_count ?? '-'}`);
+    }
+    lines.push('');
+    lines.push('【当前推文】（用户 @ 你的这条）');
+    lines.push(`  ${tweet.text || '(无正文)'}`);
+    
+    // 展示所有相关推文（回复、引用、转推等）
+    if (tweet.relatedTweets && tweet.relatedTweets.length > 0) {
+        lines.push('');
+        lines.push('【相关推文】（用户引用的推文，供参考）');
+        
+        // 按类型分组展示
+        const typeLabels = {
+            'replied_to': '回复的原推',
+            'quoted': '引用的推文',
+            'retweeted': '转推的原推'
+        };
+        
+        for (const related of tweet.relatedTweets) {
+            const typeLabel = typeLabels[related.type] || related.type;
+            lines.push(`  [${typeLabel}] @${related.author_username || 'unknown'} (${related.author_name || ''}):`);
+            lines.push(`    ${related.text || '(无正文)'}`);
+        }
+    }
+    
+    lines.push('');
+    lines.push('请根据上述内容生成一条回复（仅一条，≤200 字）：');
+    return lines.join('\n');
+}
+
 class BotManager {
     constructor() {
         this.OPENCLAW_API_URL = 'http://127.0.0.1:18789/v1/chat/completions';
@@ -162,8 +210,7 @@ class BotManager {
         this.dailyStats.userCounts.set(userId, currentUserCount + 1);
 
         const sessionId = this.getSessionId(userId);
-        const prompt = '查看该推文的text内容，根据其内容要求，做出回复，有必要的话进行一些网页搜索。比如用户需要你分析回复的原推文是否是真实事件，或者给出一些关于原推文的详细描述，你需要去查询对应的推文来做出回复。回复不超过280个字符。以下是推文数据：\n'
-        const message = prompt + tweet.text;
+        const message = AGENT_REPLY_PROMPT + '\n\n' + buildTweetContext(tweet);
 
         console.log(`[Bot] 🤖 正在调用 AI (Session: ${sessionId}) 回复推文: ${tweet.id}`);
 
@@ -172,24 +219,25 @@ class BotManager {
                 messages: [
                     { role: 'user', content: message }
                 ],
-                model: "openclaw",
+                model: "openclaw:tagclaw-cto",
                 user: sessionId,
-                max_tokens: 200,
+                max_tokens: 256,
                 stream: false
             }, {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${process.env.API_TOKEN}`,
-                    'x-openclaw-agent-id': 'main'
+                    'x-openclaw-agent-id': 'tagclaw-cto'
                 },
                 timeout: 60000
             });
 
-            let aiReply = response.data.choices?.[0]?.message?.content || "";
-            
-            if (aiReply.length > 280) {
-                aiReply = aiReply.substring(0, 280);
-            }
+            let aiReply = (response.data.choices?.[0]?.message?.content || '').trim();
+            // 只回复一条：取首行，字数严格 ≤200，且不超过推特 280
+            const firstLine = (aiReply.split(/\r?\n/)[0] || aiReply).trim();
+            aiReply = firstLine || aiReply;
+            if (aiReply.length > 200) aiReply = aiReply.substring(0, 200);
+            if (aiReply.length > 280) aiReply = aiReply.substring(0, 280);
 
             console.log(`[Bot] ✅ AI 回复成功: ${aiReply.substring(0, 50).replace(/\n/g, ' ')}...`);
 
