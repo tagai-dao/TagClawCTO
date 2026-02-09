@@ -40,7 +40,6 @@ npm install
 
 ```env
 PORT=3123
-TWITTER_API_KEY=你的_Twitter_Webhook_校验密钥
 API_TOKEN=Openclaw_API_令牌
 
 DB_HOST=127.0.0.1
